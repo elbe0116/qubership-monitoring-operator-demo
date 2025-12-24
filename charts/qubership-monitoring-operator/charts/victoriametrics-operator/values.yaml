@@ -42,15 +42,15 @@ cleanup:
     # Type: string
     # Mandatory: no
     #
-    timeout: 10s
+    timeout: 10
 
     # A docker image to use for cleanup job.
     # Calculate automatically from deployDescriptor section, but this parameter allow to override the value.
     # Type: string
     # Mandatory: yes
     #
-    #image: bitnami/kubectl:1.33.4
-  
+    #image: rancher/kuberlr-kubectl:v6.0.0
+
     # If specified, the pod's scheduling constraints
     # More info: https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#affinity-v1-core
     # Type: object
@@ -1522,7 +1522,9 @@ vmUser:
   # Type: object
   # Mandatory: no
   #
-  passwordRef: {}
+  passwordRef:
+    name: vmuser-secret
+    key: password
 
   # Allows fetching token from user-create secret by its name and key for accessing protected endpoint
   # Type: object
