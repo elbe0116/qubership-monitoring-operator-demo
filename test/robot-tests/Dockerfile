@@ -1,6 +1,7 @@
 # Based on python:3.13.2-alpine3.21
+# Using base image with S3 upload scripts for ATP Storage integration
 ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM ghcr.io/netcracker/qubership-docker-integration-tests:0.3.6
+FROM --platform=$BUILDPLATFORM ghcr.io/elbe0116/qubership-docker-integration-tests:PSUPATPOS-63
 
 ENV ROBOT_OUTPUT=/opt/robot/output \
     ROBOT_UID=1000 \
