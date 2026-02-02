@@ -92,18 +92,18 @@ jobs:
           
           # AWS EKS configuration for smaller clusters
           cat > /tmp/aws-values.yaml << 'EOF'
-integrationTests:
-  resources:
-    requests:
-      memory: 256Mi
-      cpu: 100m
-    limits:
-      memory: 512Mi
-      cpu: 200m
-  securityContext:
-    fsGroup: 1000
-    runAsUser: 1000
-EOF
+          integrationTests:
+            resources:
+              requests:
+                memory: 256Mi
+                cpu: 100m
+              limits:
+                memory: 512Mi
+                cpu: 200m
+            securityContext:
+              fsGroup: 1000
+              runAsUser: 1000
+          EOF
           HELM_ARGS="$HELM_ARGS -f /tmp/aws-values.yaml"
           
           # Install Prometheus or VictoriaMetrics operator
