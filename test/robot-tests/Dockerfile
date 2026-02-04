@@ -8,7 +8,9 @@ ENV ROBOT_OUTPUT=${ROBOT_HOME}/output \
     SERVICE_CHECKER_SCRIPT_TIMEOUT=500
 
 RUN mkdir -p ${ROBOT_HOME} \
-    && mkdir -p ${ROBOT_OUTPUT}
+    && mkdir -p ${ROBOT_OUTPUT} \
+    && mkdir -p /home/robot \
+    && chmod -R 777 /home/robot
 
 COPY requirements.txt ${ROBOT_HOME}/requirements.txt
 COPY src/ ${ROBOT_HOME}/
