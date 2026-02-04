@@ -50,11 +50,40 @@ jobs:
       - name: Prepare Group
         run: echo "GITHUB_GROUP=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
       
+      - name: Create fixed Dockerfile for AWS
+        run: |
+          cat > test/robot-tests/Dockerfile.aws << 'EOF'
+          ARG BUILDPLATFORM
+          FROM --platform=$BUILDPLATFORM ghcr.io/elbe0116/qubership-docker-integration-tests:PSUPATPOS-86
+          
+          # Switch to root for installation
+          USER root
+          
+          ENV ROBOT_OUTPUT=${ROBOT_HOME}/output \
+              SERVICE_CHECKER_SCRIPT=${ROBOT_HOME}/monitoring_pods_checker.py \
+              SERVICE_CHECKER_SCRIPT_TIMEOUT=500
+          
+          RUN mkdir -p ${ROBOT_HOME} \
+              && mkdir -p ${ROBOT_OUTPUT}
+          
+          COPY requirements.txt ${ROBOT_HOME}/requirements.txt
+          COPY src/ ${ROBOT_HOME}/
+          
+          RUN set -x \
+              && pip3 install -r ${ROBOT_HOME}/requirements.txt \
+              && rm -rf /var/cache/apk/*
+          
+          USER 1000:0
+          
+          EXPOSE 8080
+          VOLUME ["${ROBOT_OUTPUT}"]
+          EOF
+      
       - name: Build and push test image
         uses: docker/build-push-action@v6
         with:
           context: test/robot-tests
-          file: test/robot-tests/Dockerfile
+          file: test/robot-tests/Dockerfile.aws
           platforms: linux/amd64,linux/arm64
           push: true
           tags: ghcr.io/${{ env.GITHUB_GROUP }}/qubership-monitoring-operator-robot-tests:${{ env.TAG_NAME }}
