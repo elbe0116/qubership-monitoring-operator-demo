@@ -3,6 +3,9 @@
 ARG BUILDPLATFORM
 FROM --platform=$BUILDPLATFORM ghcr.io/elbe0116/qubership-docker-integration-tests:PSUPATPOS-86
 
+# Allow overriding HOME for pip to avoid permission issues
+ARG HOME=/tmp
+
 ENV ROBOT_OUTPUT=/opt/robot/output \
     ROBOT_UID=1000 \
     ROBOT_GID=0 \
