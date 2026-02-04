@@ -18,8 +18,8 @@ COPY requirements.txt ${ROBOT_HOME}/requirements.txt
 COPY src/ ${ROBOT_HOME}/
 
 RUN \
-    # Install python requirements
-    pip3 install --no-cache-dir -r ${ROBOT_HOME}/requirements.txt \
+    # Install python requirements with HOME set to /root to avoid permission issues
+    HOME=/root pip3 install --no-cache-dir -r ${ROBOT_HOME}/requirements.txt \
     # Create and grant permissions for tests output
     && mkdir -p ${ROBOT_OUTPUT} \
     && chmod a+w ${ROBOT_OUTPUT}
