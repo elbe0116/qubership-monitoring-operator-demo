@@ -61,7 +61,23 @@ jobs:
       - name: Install Monitoring
         run: |
           echo "Clean previously installed Monitoring"
-          kubectl delete ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} || true
+          kubectl delete ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} --timeout=120s || true
+          
+          # Wait for namespace to be fully deleted
+          echo "Waiting for namespace deletion to complete..."
+          for i in {1..30}; do
+            if ! kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} 2>/dev/null; then
+              echo "Namespace deleted successfully"
+              break
+            fi
+            echo "Waiting... ($i/30)"
+            sleep 2
+          done
+          
+          # Additional cleanup: ensure no node-exporter pods are still running with hostPort 9900
+          echo "Checking for any remaining node-exporter pods..."
+          kubectl get pods --all-namespaces -o wide | grep node-exporter || echo "No node-exporter pods found"
+          
           echo "Namespace to install: ${{ vars.MONITORING_INSTALL_NAMESPACE }}"
           
           # Build helm arguments dynamically (only add non-empty values)
@@ -103,6 +119,22 @@ jobs:
             securityContext:
               fsGroup: 1000
               runAsUser: 1000
+          
+          # Node-exporter configuration for AWS EKS
+          nodeExporter:
+            # Remove nodeAffinity constraints that may conflict with AWS node labels
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                  - matchExpressions:
+                    - key: kubernetes.io/os
+                      operator: In
+                      values:
+                      - linux
+            # Ensure tolerations for all AWS EKS node taints
+            tolerations:
+            - operator: Exists
           EOF
           HELM_ARGS="$HELM_ARGS -f /tmp/aws-values.yaml"
           
