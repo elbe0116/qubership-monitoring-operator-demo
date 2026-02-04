@@ -1,31 +1,23 @@
-# Based on python:3.13.2-alpine3.21
-# Using base image with S3 upload scripts for ATP Storage integration
-ARG BUILDPLATFORM
-FROM --platform=$BUILDPLATFORM ghcr.io/elbe0116/qubership-docker-integration-tests:PSUPATPOS-86
+FROM ghcr.io/elbe0116/qubership-docker-integration-tests:PSUPATPOS-86
 
 # Switch to root for installation
 USER root
 
-ENV ROBOT_OUTPUT=/opt/robot/output \
-    ROBOT_UID=1000 \
-    ROBOT_GID=0 \
+ENV ROBOT_OUTPUT=${ROBOT_HOME}/output \
     SERVICE_CHECKER_SCRIPT=${ROBOT_HOME}/monitoring_pods_checker.py \
-    SERVICE_CHECKER_SCRIPT_TIMEOUT=500 \
-    HOME=/root
+    SERVICE_CHECKER_SCRIPT_TIMEOUT=500
 
-# Copy tests parts
+RUN mkdir -p ${ROBOT_HOME} \
+    && mkdir -p ${ROBOT_OUTPUT}
+
 COPY requirements.txt ${ROBOT_HOME}/requirements.txt
 COPY src/ ${ROBOT_HOME}/
 
-# Cache buster: 2026-02-04-v5
-RUN \
-    # Install python requirements as root (avoid user-specific directories)
-    pip3 install --no-cache-dir --break-system-packages -r ${ROBOT_HOME}/requirements.txt \
-    # Create and grant permissions for tests output
-    && mkdir -p ${ROBOT_OUTPUT} \
-    && chmod a+w ${ROBOT_OUTPUT}
+RUN set -x \
+    && pip3 install -r ${ROBOT_HOME}/requirements.txt \
+    && rm -rf /var/cache/apk/*
 
-USER ${ROBOT_UID}:${ROBOT_GID}
+USER 1000:0
 
 EXPOSE 8080
 VOLUME ["${ROBOT_OUTPUT}"]
