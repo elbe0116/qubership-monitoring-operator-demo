@@ -17,6 +17,7 @@ ENV ROBOT_OUTPUT=/opt/robot/output \
 COPY requirements.txt ${ROBOT_HOME}/requirements.txt
 COPY src/ ${ROBOT_HOME}/
 
+# Cache buster: 2026-02-04-v5
 RUN \
     # Install python requirements as root (avoid user-specific directories)
     pip3 install --no-cache-dir --break-system-packages -r ${ROBOT_HOME}/requirements.txt \
