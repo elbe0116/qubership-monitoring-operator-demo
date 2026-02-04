@@ -18,12 +18,8 @@ COPY requirements.txt ${ROBOT_HOME}/requirements.txt
 COPY src/ ${ROBOT_HOME}/
 
 RUN \
-    # Create /home/robot directory with proper permissions to avoid pip install errors
-    mkdir -p /home/robot \
-    && chown -R root:root /home/robot \
-    && chmod -R 755 /home/robot \
-    # Install python requirements
-    && pip3 install --no-cache-dir -r ${ROBOT_HOME}/requirements.txt \
+    # Install python requirements as root (avoid user-specific directories)
+    pip3 install --no-cache-dir --break-system-packages -r ${ROBOT_HOME}/requirements.txt \
     # Create and grant permissions for tests output
     && mkdir -p ${ROBOT_OUTPUT} \
     && chmod a+w ${ROBOT_OUTPUT}
