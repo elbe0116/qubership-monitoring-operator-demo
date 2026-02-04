@@ -10,7 +10,8 @@ ENV ROBOT_OUTPUT=/opt/robot/output \
     ROBOT_UID=1000 \
     ROBOT_GID=0 \
     SERVICE_CHECKER_SCRIPT=${ROBOT_HOME}/monitoring_pods_checker.py \
-    SERVICE_CHECKER_SCRIPT_TIMEOUT=500
+    SERVICE_CHECKER_SCRIPT_TIMEOUT=500 \
+    HOME=/root
 
 # Copy tests parts
 COPY requirements.txt ${ROBOT_HOME}/requirements.txt
