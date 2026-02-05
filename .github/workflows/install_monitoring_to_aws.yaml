@@ -59,6 +59,7 @@ jobs:
         run: kubectl get nodes
 
       - name: Create Docker Hub credentials secret
+        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
         run: |
           # Create namespace if it doesn't exist
           kubectl create namespace ${{ vars.MONITORING_INSTALL_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
@@ -70,6 +71,8 @@ jobs:
             --docker-password=${{ secrets.DOCKERHUB_TOKEN }} \
             --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
             --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "Docker Hub credentials configured"
 
       - name: Install Monitoring
         run: |
@@ -158,14 +161,7 @@ jobs:
           
           # AWS EKS configuration for smaller clusters
           cat > /tmp/aws-values.yaml << 'EOF'
-          # Global image pull secrets for Docker Hub rate limit
-          global:
-            imagePullSecrets:
-              - name: dockerhub-secret
-          
           integrationTests:
-            imagePullSecrets:
-              - name: dockerhub-secret
             resources:
               requests:
                 memory: 256Mi
@@ -179,8 +175,6 @@ jobs:
           
           # Node-exporter configuration for AWS EKS
           nodeExporter:
-            imagePullSecrets:
-              - name: dockerhub-secret
             # Remove nodeAffinity constraints that may conflict with AWS node labels
             affinity:
               nodeAffinity:
@@ -196,6 +190,16 @@ jobs:
             - operator: Exists
           EOF
           HELM_ARGS="$HELM_ARGS -f /tmp/aws-values.yaml"
+          
+          # Add Docker Hub credentials if configured
+          if kubectl get secret dockerhub-secret -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} 2>/dev/null; then
+            echo "Docker Hub credentials found, configuring imagePullSecrets..."
+            HELM_ARGS="$HELM_ARGS --set global.imagePullSecrets[0].name=dockerhub-secret"
+            HELM_ARGS="$HELM_ARGS --set nodeExporter.imagePullSecrets[0].name=dockerhub-secret"
+            HELM_ARGS="$HELM_ARGS --set integrationTests.imagePullSecrets[0].name=dockerhub-secret"
+          else
+            echo "Docker Hub credentials not configured (rate limits may apply)"
+          fi
           
           # Install Prometheus or VictoriaMetrics operator
           if [ "${{ github.event.inputs.operator_type }}" == "prometheus-operator" ]; then
