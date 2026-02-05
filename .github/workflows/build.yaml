@@ -75,6 +75,14 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v6.0.0
+      with:
+        ref: ${{ github.ref }}
+    - name: Debug checkout
+      run: |
+        echo "Branch: ${{ github.ref }}"
+        echo "Commit: $(git rev-parse HEAD)"
+        echo "Dockerfile content (first 5 lines):"
+        head -5 ${{ matrix.component.file }}
     - name: Set image name
       run: |
         OWNER="${{ github.repository_owner }}"
