@@ -58,6 +58,19 @@ jobs:
       - name: Verify cluster access
         run: kubectl get nodes
 
+      - name: Create Docker Hub credentials secret
+        run: |
+          # Create namespace if it doesn't exist
+          kubectl create namespace ${{ vars.MONITORING_INSTALL_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Create Docker Hub secret for pulling images
+          kubectl create secret docker-registry dockerhub-secret \
+            --docker-server=https://index.docker.io/v1/ \
+            --docker-username=${{ secrets.DOCKERHUB_USERNAME }} \
+            --docker-password=${{ secrets.DOCKERHUB_TOKEN }} \
+            --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Install Monitoring
         run: |
           echo "Clean previously installed Monitoring"
@@ -145,7 +158,14 @@ jobs:
           
           # AWS EKS configuration for smaller clusters
           cat > /tmp/aws-values.yaml << 'EOF'
+          # Global image pull secrets for Docker Hub rate limit
+          global:
+            imagePullSecrets:
+              - name: dockerhub-secret
+          
           integrationTests:
+            imagePullSecrets:
+              - name: dockerhub-secret
             resources:
               requests:
                 memory: 256Mi
@@ -159,6 +179,8 @@ jobs:
           
           # Node-exporter configuration for AWS EKS
           nodeExporter:
+            imagePullSecrets:
+              - name: dockerhub-secret
             # Remove nodeAffinity constraints that may conflict with AWS node labels
             affinity:
               nodeAffinity:
