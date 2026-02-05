@@ -61,18 +61,39 @@ jobs:
       - name: Install Monitoring
         run: |
           echo "Clean previously installed Monitoring"
-          kubectl delete ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} --timeout=120s || true
+          
+          # First, try graceful deletion with timeout
+          kubectl delete ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} --timeout=180s --wait=false || true
           
           # Wait for namespace to be fully deleted
           echo "Waiting for namespace deletion to complete..."
-          for i in {1..30}; do
+          for i in {1..90}; do
             if ! kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} 2>/dev/null; then
               echo "Namespace deleted successfully"
               break
             fi
-            echo "Waiting... ($i/30)"
+            
+            # Check if namespace is stuck in Terminating state
+            NS_STATUS=$(kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+            echo "Waiting... ($i/90) - Namespace status: $NS_STATUS"
+            
+            # If stuck in Terminating for too long, try to force delete
+            if [ "$i" -gt 60 ] && [ "$NS_STATUS" == "Terminating" ]; then
+              echo "Namespace stuck in Terminating state, attempting to force delete..."
+              kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o json | \
+                jq '.spec.finalizers = []' | \
+                kubectl replace --raw "/api/v1/namespaces/${{ vars.MONITORING_INSTALL_NAMESPACE }}/finalize" -f - || true
+            fi
+            
             sleep 2
           done
+          
+          # Final check - if namespace still exists, fail
+          if kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} 2>/dev/null; then
+            echo "ERROR: Namespace still exists after timeout!"
+            kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o yaml
+            exit 1
+          fi
           
           # Additional cleanup: ensure no node-exporter pods are still running with hostPort 9900
           echo "Checking for any remaining node-exporter pods..."
