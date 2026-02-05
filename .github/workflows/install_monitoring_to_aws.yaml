@@ -62,7 +62,12 @@ jobs:
         run: |
           echo "Clean previously installed Monitoring"
           
-          # First, try graceful deletion with timeout
+          # First, uninstall Helm release if exists
+          echo "Uninstalling Helm release..."
+          helm uninstall monitoring -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} --wait --timeout=120s || true
+          
+          # Delete namespace
+          echo "Deleting namespace..."
           kubectl delete ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} --timeout=180s --wait=false || true
           
           # Wait for namespace to be fully deleted
@@ -78,11 +83,22 @@ jobs:
             echo "Waiting... ($i/90) - Namespace status: $NS_STATUS"
             
             # If stuck in Terminating for too long, try to force delete
-            if [ "$i" -gt 60 ] && [ "$NS_STATUS" == "Terminating" ]; then
+            if [ "$i" -gt 30 ] && [ "$NS_STATUS" == "Terminating" ]; then
               echo "Namespace stuck in Terminating state, attempting to force delete..."
+              
+              # Remove finalizers from all resources in the namespace
+              echo "Removing finalizers from namespace resources..."
+              kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o name | \
+                xargs -n 1 kubectl patch -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+              
+              # Remove finalizers from namespace itself
+              echo "Removing finalizers from namespace..."
               kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o json | \
                 jq '.spec.finalizers = []' | \
                 kubectl replace --raw "/api/v1/namespaces/${{ vars.MONITORING_INSTALL_NAMESPACE }}/finalize" -f - || true
+              
+              # Give it a moment to process
+              sleep 5
             fi
             
             sleep 2
