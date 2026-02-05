@@ -76,11 +76,18 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v6.0.0
       with:
-        ref: ${{ github.ref }}
+        # For workflow_run, use the head branch and sha from the triggering workflow
+        # Otherwise use the current ref
+        ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+        fetch-depth: 0
     - name: Debug checkout
       run: |
+        echo "Event name: ${{ github.event_name }}"
         echo "Branch: ${{ github.ref }}"
-        echo "Commit: $(git rev-parse HEAD)"
+        echo "Workflow run head branch: ${{ github.event.workflow_run.head_branch }}"
+        echo "Workflow run head sha: ${{ github.event.workflow_run.head_sha }}"
+        echo "Current commit: $(git rev-parse HEAD)"
+        echo "Current branch: $(git branch --show-current)"
         echo "Dockerfile content (first 5 lines):"
         head -5 ${{ matrix.component.file }}
     - name: Set image name
