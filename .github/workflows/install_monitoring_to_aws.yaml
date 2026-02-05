@@ -175,6 +175,11 @@ jobs:
           
           # Node-exporter configuration for AWS EKS
           nodeExporter:
+            # Use AWS ECR image to avoid Docker Hub rate limits
+            image:
+              repository: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo
+              tag: node-exporter-1.9.0
+              pullPolicy: IfNotPresent
             # Remove nodeAffinity constraints that may conflict with AWS node labels
             affinity:
               nodeAffinity:
