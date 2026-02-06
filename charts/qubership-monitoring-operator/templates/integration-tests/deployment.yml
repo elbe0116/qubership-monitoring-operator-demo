@@ -45,6 +45,10 @@ spec:
       {{- if .Values.integrationTests.priorityClassName }}
       priorityClassName: {{ .Values.integrationTests.priorityClassName | quote }}
       {{- end }}
+      {{- with .Values.integrationTests.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       volumes:
         - name: robot-storage
           emptyDir: {}
