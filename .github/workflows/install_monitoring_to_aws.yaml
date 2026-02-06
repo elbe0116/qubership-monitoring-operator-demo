@@ -191,15 +191,15 @@ jobs:
               image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-operator-v0.65.0
               configReloaderImage: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-operator-config-reloader-v0.65.0
             vmAgent:
-              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmagent-v1.130.0
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-vmagent-v1.130.0
             vmAlert:
-              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmalert-v1.130.0
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-vmalert-v1.130.0
             vmAlertManager:
-              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmalertmanager-v0.28.1
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:prom-alertmanager-v0.28.1
             vmAuth:
-              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmauth-v1.130.0
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-vmauth-v1.130.0
             vmSingle:
-              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmsingle-v1.130.0
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-victoria-metrics-v1.130.0
           
           # Node-exporter configuration for AWS EKS
           nodeExporter:
