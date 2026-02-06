@@ -185,6 +185,15 @@ jobs:
               fsGroup: 1000
               runAsUser: 1000
           
+          # VictoriaMetrics Operator configuration
+          victoriametrics-operator:
+            operator:
+              # Use AWS ECR image to avoid Docker Hub rate limits
+              image:
+                repository: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo
+                tag: victoriametrics-operator-v0.65.0
+                pullPolicy: IfNotPresent
+          
           # Node-exporter configuration for AWS EKS
           nodeExporter:
             # Use AWS ECR image to avoid Docker Hub rate limits
