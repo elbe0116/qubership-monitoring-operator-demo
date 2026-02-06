@@ -120,11 +120,18 @@ jobs:
           # Build helm arguments dynamically (only add non-empty values)
           HELM_ARGS=""
           
+          # Prepare Tag and Group for custom image
+          TAG_NAME=$(echo ${{ github.ref_name }} | sed 's@/@_@g')
+          GITHUB_GROUP=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
+          
           # Enable integration tests and set test tags
           HELM_ARGS="$HELM_ARGS --set integrationTests.install=true"
           if [ -n "${{ github.event.inputs.test_tags }}" ]; then
             HELM_ARGS="$HELM_ARGS --set integrationTests.tags=${{ github.event.inputs.test_tags }}"
           fi
+          
+          # Use custom built image from current branch
+          HELM_ARGS="$HELM_ARGS --set integrationTests.image=ghcr.io/${GITHUB_GROUP}/qubership-monitoring-int-tests:${TAG_NAME}"
           
           # Secrets - S3 credentials for test results upload
           [ -n "${{ secrets.S3_AWS_ACCESS_KEY_ID }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.username=${{ secrets.S3_AWS_ACCESS_KEY_ID }}"
