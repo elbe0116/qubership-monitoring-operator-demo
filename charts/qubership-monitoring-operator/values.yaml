@@ -1532,6 +1532,12 @@ integrationTests:
   #
   install: false
 
+  # Kubernetes secret names for pulling private images.
+  # Type: Array
+  # Mandatory: no
+  #
+  imagePullSecrets: []
+
   ## The resources describe compute resource requests and limits for single Pod.
   ## Ref: https://kubernetes.io/docs/user-guide/compute-resources/
   # Type: object
