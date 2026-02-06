@@ -185,11 +185,21 @@ jobs:
               fsGroup: 1000
               runAsUser: 1000
           
-          # VictoriaMetrics Operator configuration
+          # VictoriaMetrics components configuration - use AWS ECR to avoid Docker Hub rate limits
           victoriametrics:
             vmOperator:
-              # Use AWS ECR image to avoid Docker Hub rate limits (full image path with tag)
               image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-operator-v0.65.0
+              configReloaderImage: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-operator-config-reloader-v0.65.0
+            vmAgent:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmagent-v1.130.0
+            vmAlert:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmalert-v1.130.0
+            vmAlertManager:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmalertmanager-v0.28.1
+            vmAuth:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmauth-v1.130.0
+            vmSingle:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:vmsingle-v1.130.0
           
           # Node-exporter configuration for AWS EKS
           nodeExporter:
