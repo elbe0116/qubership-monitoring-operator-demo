@@ -3,6 +3,7 @@ FROM ghcr.io/elbe0116/qubership-docker-integration-tests:PSUPATPOS-63
 # Switch to root for installation
 USER root
 
+
 ENV ROBOT_OUTPUT=${ROBOT_HOME}/output \
     SERVICE_CHECKER_SCRIPT=${ROBOT_HOME}/monitoring_pods_checker.py \
     SERVICE_CHECKER_SCRIPT_TIMEOUT=500
