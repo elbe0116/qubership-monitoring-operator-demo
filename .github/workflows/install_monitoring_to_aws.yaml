@@ -188,8 +188,10 @@ jobs:
           # VictoriaMetrics components configuration - use AWS ECR to avoid Docker Hub rate limits
           victoriametrics:
             vmOperator:
+              # Main operator image from ECR
               image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-operator-v0.65.0
-              configReloaderImage: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-operator-config-reloader-v0.65.0
+              # configReloaderImage: use default from Docker Hub (docker.io/victoriametrics/operator:config-reloader-v0.65.0)
+              # Not overriding because operator expects specific tag format
             vmAgent:
               image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-vmagent-v1.130.0
             vmAlert:
