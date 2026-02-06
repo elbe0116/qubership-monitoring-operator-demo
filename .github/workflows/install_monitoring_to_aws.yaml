@@ -20,6 +20,10 @@ jobs:
   Install-Monitoring:
     environment: "${{github.event.inputs.environment}}"
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
+      actions: read
 
     steps:
       - name: Checkout Code
