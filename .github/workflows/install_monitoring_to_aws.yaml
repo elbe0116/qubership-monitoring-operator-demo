@@ -1,4 +1,4 @@
-﻿name: Install Monitoring
+name: Install Monitoring
 
 on:
   workflow_dispatch:
