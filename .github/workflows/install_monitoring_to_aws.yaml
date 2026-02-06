@@ -58,6 +58,21 @@ jobs:
       - name: Verify cluster access
         run: kubectl get nodes
 
+      - name: Create GHCR credentials secret
+        run: |
+          # Create namespace if it doesn't exist
+          kubectl create namespace ${{ vars.MONITORING_INSTALL_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Create GHCR secret for pulling private images
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "GHCR credentials configured"
+
       - name: Install Monitoring
         run: |
           echo "Clean previously installed Monitoring"
@@ -132,6 +147,9 @@ jobs:
           
           # Use custom built image from current branch
           HELM_ARGS="$HELM_ARGS --set integrationTests.image=ghcr.io/${GITHUB_GROUP}/qubership-monitoring-int-tests:${TAG_NAME}"
+          
+          # Add GHCR credentials for pulling private images
+          HELM_ARGS="$HELM_ARGS --set integrationTests.imagePullSecrets[0].name=ghcr-secret"
           
           # Secrets - S3 credentials for test results upload
           [ -n "${{ secrets.S3_AWS_ACCESS_KEY_ID }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.username=${{ secrets.S3_AWS_ACCESS_KEY_ID }}"
