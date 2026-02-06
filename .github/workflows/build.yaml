@@ -76,9 +76,10 @@ jobs:
     - name: Checkout
       uses: actions/checkout@v6.0.0
       with:
-        # For workflow_run, use the head branch and sha from the triggering workflow
-        # Otherwise use the current ref
-        ref: ${{ github.event.workflow_run.head_branch || github.ref }}
+        # Use the exact commit SHA to ensure we get the right code
+        # For workflow_run events, use head_sha from the triggering workflow
+        # For push events, use github.sha
+        ref: ${{ github.event.workflow_run.head_sha || github.sha }}
         fetch-depth: 0
     - name: Debug checkout
       run: |
