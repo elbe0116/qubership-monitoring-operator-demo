@@ -136,8 +136,8 @@ jobs:
         context: ${{ matrix.component.context }}
         file: ${{ matrix.component.file }}
         platforms: linux/amd64,linux/arm64
-        # Push on: direct push to branch, or PR from same repo (not dependabot, not fork)
-        push: ${{ github.actor != 'dependabot[bot]' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        # Push on: any event except pull_request (like zookeeper)
+        push: ${{ github.event_name != 'pull_request' && github.actor != 'dependabot[bot]' }}
         provenance: false
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
