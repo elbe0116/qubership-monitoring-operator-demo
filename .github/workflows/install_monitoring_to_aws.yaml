@@ -1,4 +1,4 @@
-name: Install Monitoring
+﻿name: Install Monitoring
 
 on:
   workflow_dispatch:
@@ -58,20 +58,98 @@ jobs:
       - name: Verify cluster access
         run: kubectl get nodes
 
+      - name: Create GHCR credentials secret
+        run: |
+          # Create namespace if it doesn't exist
+          kubectl create namespace ${{ vars.MONITORING_INSTALL_NAMESPACE }} --dry-run=client -o yaml | kubectl apply -f -
+          
+          # Create GHCR secret for pulling private images
+          kubectl create secret docker-registry ghcr-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
+            --dry-run=client -o yaml | kubectl apply -f -
+          
+          echo "GHCR credentials configured"
+
       - name: Install Monitoring
         run: |
           echo "Clean previously installed Monitoring"
-          kubectl delete ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} || true
+          
+          # First, uninstall Helm release if exists
+          echo "Uninstalling Helm release..."
+          helm uninstall monitoring -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} --wait --timeout=120s || true
+          
+          # Delete namespace
+          echo "Deleting namespace..."
+          kubectl delete ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} --timeout=180s --wait=false || true
+          
+          # Wait for namespace to be fully deleted
+          echo "Waiting for namespace deletion to complete..."
+          for i in {1..90}; do
+            if ! kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} 2>/dev/null; then
+              echo "Namespace deleted successfully"
+              break
+            fi
+            
+            # Check if namespace is stuck in Terminating state
+            NS_STATUS=$(kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o jsonpath='{.status.phase}' 2>/dev/null || echo "")
+            echo "Waiting... ($i/90) - Namespace status: $NS_STATUS"
+            
+            # If stuck in Terminating for too long, try to force delete
+            if [ "$i" -gt 30 ] && [ "$NS_STATUS" == "Terminating" ]; then
+              echo "Namespace stuck in Terminating state, attempting to force delete..."
+              
+              # Remove finalizers from all resources in the namespace
+              echo "Removing finalizers from namespace resources..."
+              kubectl api-resources --verbs=list --namespaced -o name | xargs -n 1 kubectl get --show-kind --ignore-not-found -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o name | \
+                xargs -n 1 kubectl patch -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} -p '{"metadata":{"finalizers":[]}}' --type=merge 2>/dev/null || true
+              
+              # Remove finalizers from namespace itself
+              echo "Removing finalizers from namespace..."
+              kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o json | \
+                jq '.spec.finalizers = []' | \
+                kubectl replace --raw "/api/v1/namespaces/${{ vars.MONITORING_INSTALL_NAMESPACE }}/finalize" -f - || true
+              
+              # Give it a moment to process
+              sleep 5
+            fi
+            
+            sleep 2
+          done
+          
+          # Final check - if namespace still exists, fail
+          if kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} 2>/dev/null; then
+            echo "ERROR: Namespace still exists after timeout!"
+            kubectl get ns ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o yaml
+            exit 1
+          fi
+          
+          # Additional cleanup: ensure no node-exporter pods are still running with hostPort 9900
+          echo "Checking for any remaining node-exporter pods..."
+          kubectl get pods --all-namespaces -o wide | grep node-exporter || echo "No node-exporter pods found"
+          
           echo "Namespace to install: ${{ vars.MONITORING_INSTALL_NAMESPACE }}"
           
           # Build helm arguments dynamically (only add non-empty values)
           HELM_ARGS=""
+          
+          # Prepare Tag and Group for custom image
+          TAG_NAME=$(echo ${{ github.ref_name }} | sed 's@/@_@g')
+          GITHUB_GROUP=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
           
           # Enable integration tests and set test tags
           HELM_ARGS="$HELM_ARGS --set integrationTests.install=true"
           if [ -n "${{ github.event.inputs.test_tags }}" ]; then
             HELM_ARGS="$HELM_ARGS --set integrationTests.tags=${{ github.event.inputs.test_tags }}"
           fi
+          
+          # Use custom built image from current branch
+          HELM_ARGS="$HELM_ARGS --set integrationTests.image=ghcr.io/${GITHUB_GROUP}/qubership-monitoring-int-tests:${TAG_NAME}"
+          
+          # Add GHCR credentials for pulling private images
+          HELM_ARGS="$HELM_ARGS --set integrationTests.imagePullSecrets[0].name=ghcr-secret"
           
           # Secrets - S3 credentials for test results upload
           [ -n "${{ secrets.S3_AWS_ACCESS_KEY_ID }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.username=${{ secrets.S3_AWS_ACCESS_KEY_ID }}"
@@ -103,6 +181,27 @@ jobs:
             securityContext:
               fsGroup: 1000
               runAsUser: 1000
+          
+          # Node-exporter configuration for AWS EKS
+          nodeExporter:
+            # Use AWS ECR image to avoid Docker Hub rate limits
+            image:
+              repository: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo
+              tag: node-exporter-1.9.0
+              pullPolicy: IfNotPresent
+            # Remove nodeAffinity constraints that may conflict with AWS node labels
+            affinity:
+              nodeAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                  nodeSelectorTerms:
+                  - matchExpressions:
+                    - key: kubernetes.io/os
+                      operator: In
+                      values:
+                      - linux
+            # Ensure tolerations for all AWS EKS node taints
+            tolerations:
+            - operator: Exists
           EOF
           HELM_ARGS="$HELM_ARGS -f /tmp/aws-values.yaml"
           
