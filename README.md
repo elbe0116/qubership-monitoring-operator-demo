@@ -224,3 +224,4 @@ If this project helped you, please consider giving it a star!
 ---
 
 **Ready to get started?** Follow our [Quick Start guide](#quick-start) and have monitoring running in minutes!
+# Trigger rebuild with correct SHA checkout
