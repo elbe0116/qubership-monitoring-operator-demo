@@ -140,6 +140,210 @@ jobs:
           
           echo "GHCR credentials configured"
           
+          # Install nginx Ingress Controller in same namespace for AWS EKS
+          # Required for Grafana UI tests - must be on same node as test pod
+          echo "Installing nginx Ingress Controller..."
+          kubectl apply -f - <<EOF
+          apiVersion: v1
+          kind: ServiceAccount
+          metadata:
+            name: nginx-ingress
+            namespace: ${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRole
+          metadata:
+            name: nginx-ingress-${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          rules:
+          - apiGroups: [""]
+            resources: ["configmaps", "endpoints", "nodes", "pods", "secrets", "namespaces"]
+            verbs: ["list", "watch"]
+          - apiGroups: [""]
+            resources: ["nodes"]
+            verbs: ["get"]
+          - apiGroups: [""]
+            resources: ["services"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: ["networking.k8s.io"]
+            resources: ["ingresses", "ingressclasses"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: [""]
+            resources: ["events"]
+            verbs: ["create", "patch"]
+          - apiGroups: ["networking.k8s.io"]
+            resources: ["ingresses/status"]
+            verbs: ["update"]
+          - apiGroups: ["discovery.k8s.io"]
+            resources: ["endpointslices"]
+            verbs: ["list", "watch", "get"]
+          - apiGroups: ["coordination.k8s.io"]
+            resources: ["leases"]
+            verbs: ["get", "list", "watch", "create", "update"]
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: Role
+          metadata:
+            name: nginx-ingress
+            namespace: ${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          rules:
+          - apiGroups: [""]
+            resources: ["namespaces"]
+            verbs: ["get"]
+          - apiGroups: [""]
+            resources: ["configmaps", "pods", "secrets", "endpoints"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: [""]
+            resources: ["services"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: ["networking.k8s.io"]
+            resources: ["ingresses"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: ["networking.k8s.io"]
+            resources: ["ingresses/status"]
+            verbs: ["update"]
+          - apiGroups: ["networking.k8s.io"]
+            resources: ["ingressclasses"]
+            verbs: ["get", "list", "watch"]
+          - apiGroups: [""]
+            resources: ["configmaps"]
+            resourceNames: ["ingress-nginx-leader"]
+            verbs: ["get", "update"]
+          - apiGroups: [""]
+            resources: ["configmaps"]
+            verbs: ["create"]
+          - apiGroups: [""]
+            resources: ["events"]
+            verbs: ["create", "patch"]
+          - apiGroups: ["coordination.k8s.io"]
+            resources: ["leases"]
+            verbs: ["get", "list", "watch", "create", "update"]
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: ClusterRoleBinding
+          metadata:
+            name: nginx-ingress-${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: ClusterRole
+            name: nginx-ingress-${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          subjects:
+          - kind: ServiceAccount
+            name: nginx-ingress
+            namespace: ${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          ---
+          apiVersion: rbac.authorization.k8s.io/v1
+          kind: RoleBinding
+          metadata:
+            name: nginx-ingress
+            namespace: ${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          roleRef:
+            apiGroup: rbac.authorization.k8s.io
+            kind: Role
+            name: nginx-ingress
+          subjects:
+          - kind: ServiceAccount
+            name: nginx-ingress
+            namespace: ${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          ---
+          apiVersion: networking.k8s.io/v1
+          kind: IngressClass
+          metadata:
+            name: nginx
+          spec:
+            controller: k8s.io/ingress-nginx
+          ---
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: nginx-ingress
+            namespace: ${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          spec:
+            type: ClusterIP
+            ports:
+            - name: http
+              port: 80
+              targetPort: 80
+              protocol: TCP
+            selector:
+              app: nginx-ingress
+          ---
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: nginx-ingress-controller
+            namespace: ${{ vars.MONITORING_INSTALL_NAMESPACE }}
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: nginx-ingress
+            template:
+              metadata:
+                labels:
+                  app: nginx-ingress
+              spec:
+                serviceAccountName: nginx-ingress
+                containers:
+                - name: nginx-ingress-controller
+                  image: registry.k8s.io/ingress-nginx/controller:v1.11.3
+                  args:
+                  - /nginx-ingress-controller
+                  - --ingress-class=nginx
+                  - --configmap=\$(POD_NAMESPACE)/nginx-configuration
+                  - --election-id=ingress-nginx-leader
+                  env:
+                  - name: POD_NAME
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.name
+                  - name: POD_NAMESPACE
+                    valueFrom:
+                      fieldRef:
+                        fieldPath: metadata.namespace
+                  ports:
+                  - name: http
+                    containerPort: 80
+                  - name: https
+                    containerPort: 443
+                  resources:
+                    requests:
+                      cpu: 50m
+                      memory: 64Mi
+                    limits:
+                      cpu: 200m
+                      memory: 256Mi
+          EOF
+          
+          echo "Waiting for nginx Ingress Controller to be ready..."
+          kubectl wait --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
+            --for=condition=ready pod \
+            --selector=app=nginx-ingress \
+            --timeout=120s || true
+          
+          # Get a Ready node name for same-node scheduling
+          echo "Finding a Ready node for same-node scheduling..."
+          SELECTED_NODE=$(kubectl get nodes -o json | jq -r '.items[] | select(.status.conditions[] | select(.type=="Ready" and .status=="True")) | select(.spec.taints == null or (.spec.taints | length == 0)) | .metadata.name' | head -1)
+          
+          if [ -z "$SELECTED_NODE" ]; then
+            echo "WARNING: No untainted Ready node found, using any Ready node"
+            SELECTED_NODE=$(kubectl get nodes -o json | jq -r '.items[] | select(.status.conditions[] | select(.type=="Ready" and .status=="True")) | .metadata.name' | head -1)
+          fi
+          
+          echo "Selected node for same-node scheduling: $SELECTED_NODE"
+          
+          # Add nodeSelector to nginx controller
+          kubectl patch deployment nginx-ingress-controller -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} \
+            --type=json \
+            -p="[{\"op\": \"add\", \"path\": \"/spec/template/spec/nodeSelector\", \"value\": {\"kubernetes.io/hostname\": \"$SELECTED_NODE\"}}]"
+          
+          echo "Waiting for nginx to restart on selected node..."
+          kubectl wait --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
+            --for=condition=ready pod \
+            --selector=app=nginx-ingress \
+            --timeout=120s
+          
+          echo "nginx Ingress Controller installed and running on node: $SELECTED_NODE"
+          
           # Build helm arguments dynamically (only add non-empty values)
           HELM_ARGS=""
           
@@ -162,6 +366,8 @@ jobs:
           # Add GHCR credentials for pulling private images
           HELM_ARGS="$HELM_ARGS --set integrationTests.imagePullSecrets[0].name=ghcr-secret"
           
+          # Configure same-node scheduling for integration tests (must be on same node as nginx)
+          HELM_ARGS="$HELM_ARGS --set integrationTests.nodeSelector.kubernetes\.io/hostname=$SELECTED_NODE"
           
           # Secrets - S3 credentials for test results upload
           [ -n "${{ secrets.S3_AWS_ACCESS_KEY_ID }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.username=${{ secrets.S3_AWS_ACCESS_KEY_ID }}"
@@ -234,12 +440,16 @@ jobs:
             tolerations:
             - operator: Exists
           
-          # Configure Ingress with TLS for HTTPS tests
-          # Note: using internal service instead of Ingress to avoid DNS resolution issues
+          # Configure Grafana Ingress with nginx for AWS EKS
+          # Using nginx Ingress Controller deployed in same namespace
+          # Both nginx and test pods are scheduled on the same node to enable connectivity
           grafana:
             ingress:
-              enabled: false
+              enabled: true
+              ingressClassName: nginx
+              host: grafana-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local
           
+          # Other UI ingresses remain disabled (tests will skip them)
           victoriametricsUI:
             ingress:
               enabled: false
@@ -279,8 +489,9 @@ jobs:
             monitoring ./charts/qubership-monitoring-operator \
             $HELM_ARGS
           
-          # Note: AWS EKS configuration differs from Kind (PR workflow):
-          # - Tests use internal Service (grafana-service:3000) via HTTP instead of Ingress
-          # - nginx Ingress Controller with LoadBalancer type is not accessible from Pods
-          # - This is expected and tests are designed to handle both scenarios via protocol auto-detection
-          echo "Tests configured to use internal Services (HTTP) for UI access"
+          # AWS EKS configuration uses nginx Ingress Controller for Grafana UI tests
+          # - nginx and test pods are scheduled on the same node for connectivity
+          # - Grafana is accessible via nginx Ingress with hostname: grafana-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local
+          # - Other UI tests (VictoriaMetrics, vmalert, vmalertmanager) are skipped as their ingresses are disabled
+          echo "Grafana Ingress configured with nginx (same-node scheduling)"
+          echo "Grafana hostname: grafana-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local"
