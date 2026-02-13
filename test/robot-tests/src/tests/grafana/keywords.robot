@@ -42,7 +42,9 @@ Decode Base64
 
 Attempt Login To Grafana
     [Arguments]  ${url}  ${username}  ${password}
-    Create Session  grafana_session  https://${url}
+    # Use HTTP for internal service (contains port), HTTPS for ingress
+    ${protocol}=  Set Variable If  ':' in '${url}'  http  https
+    Create Session  grafana_session  ${protocol}://${url}  verify=False
     ${headers}=  Create Dictionary  Content-Type=application/json
     ${body}=  Create Dictionary  user=${username}  password=${password}
     ${response}=  POST On Session  grafana_session  /login

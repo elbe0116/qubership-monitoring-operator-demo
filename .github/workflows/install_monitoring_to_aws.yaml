@@ -135,20 +135,6 @@ jobs:
           
           echo "GHCR credentials configured"
           
-          # Create self-signed TLS certificate for Ingress (for HTTPS tests)
-          echo "Creating self-signed TLS certificate for Ingress..."
-          openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-            -keyout /tmp/tls.key -out /tmp/tls.crt \
-            -subj "/CN=*.local/O=qubership-test" \
-            -addext "subjectAltName=DNS:*.local,DNS:*.${{ vars.MONITORING_INSTALL_NAMESPACE }}.local"
-          
-          kubectl create secret tls monitoring-tls-secret \
-            --cert=/tmp/tls.crt \
-            --key=/tmp/tls.key \
-            --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }}
-          
-          echo "TLS certificate created"
-          
           # Build helm arguments dynamically (only add non-empty values)
           HELM_ARGS=""
           
@@ -171,8 +157,6 @@ jobs:
           # Add GHCR credentials for pulling private images
           HELM_ARGS="$HELM_ARGS --set integrationTests.imagePullSecrets[0].name=ghcr-secret"
           
-          # Disable SSL verification for self-signed certificates in AWS
-          HELM_ARGS="$HELM_ARGS --set integrationTests.disableSSLVerification=true"
           
           # Secrets - S3 credentials for test results upload
           [ -n "${{ secrets.S3_AWS_ACCESS_KEY_ID }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.username=${{ secrets.S3_AWS_ACCESS_KEY_ID }}"
@@ -246,45 +230,22 @@ jobs:
             - operator: Exists
           
           # Configure Ingress with TLS for HTTPS tests
+          # Note: using internal service instead of Ingress to avoid DNS resolution issues
           grafana:
             ingress:
-              enabled: true
-              host: grafana-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local
-              annotations:
-                kubernetes.io/ingress.class: nginx
-              tls:
-                enabled: true
-                secretName: monitoring-tls-secret
+              enabled: false
           
           victoriametricsUI:
             ingress:
-              enabled: true
-              host: vmui-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local
-              annotations:
-                kubernetes.io/ingress.class: nginx
-              tls:
-                enabled: true
-                secretName: monitoring-tls-secret
+              enabled: false
           
           vmalertUI:
             ingress:
-              enabled: true
-              host: vmalert-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local
-              annotations:
-                kubernetes.io/ingress.class: nginx
-              tls:
-                enabled: true
-                secretName: monitoring-tls-secret
+              enabled: false
           
           vmalertmanagerUI:
             ingress:
-              enabled: true
-              host: vmalertmanager-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local
-              annotations:
-                kubernetes.io/ingress.class: nginx
-              tls:
-                enabled: true
-                secretName: monitoring-tls-secret
+              enabled: false
           EOF
           HELM_ARGS="$HELM_ARGS -f /tmp/aws-values.yaml"
           
