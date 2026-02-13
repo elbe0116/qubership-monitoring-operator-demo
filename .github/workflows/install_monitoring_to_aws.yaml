@@ -125,12 +125,17 @@ jobs:
           echo "Creating namespace..."
           kubectl create namespace ${{ vars.MONITORING_INSTALL_NAMESPACE }}
           
-          # Create GHCR secret for pulling private images
+          # Create GHCR secret for pulling private images (use PAT for long-lived access)
           echo "Creating GHCR credentials secret..."
+          GHCR_TOKEN="${{ secrets.GHCR_PAT }}"
+          if [ -z "$GHCR_TOKEN" ]; then
+            echo "WARNING: GHCR_PAT secret not found, falling back to GITHUB_TOKEN (may expire after workflow completes)"
+            GHCR_TOKEN="${{ secrets.GITHUB_TOKEN }}"
+          fi
           kubectl create secret docker-registry ghcr-secret \
             --docker-server=ghcr.io \
             --docker-username=${{ github.actor }} \
-            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --docker-password="$GHCR_TOKEN" \
             --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }}
           
           echo "GHCR credentials configured"
@@ -273,3 +278,9 @@ jobs:
             -f ./charts/qubership-monitoring-operator/values.yaml \
             monitoring ./charts/qubership-monitoring-operator \
             $HELM_ARGS
+          
+          # Note: AWS EKS configuration differs from Kind (PR workflow):
+          # - Tests use internal Service (grafana-service:3000) via HTTP instead of Ingress
+          # - nginx Ingress Controller with LoadBalancer type is not accessible from Pods
+          # - This is expected and tests are designed to handle both scenarios via protocol auto-detection
+          echo "Tests configured to use internal Services (HTTP) for UI access"

@@ -216,6 +216,9 @@ Check Route/Ingress Status
     ...  ${namespace}  platformmonitoring
     ${external_url}=  Check Route Or Ingress  ${custom_resource}  ${name-in-cr}
     ...  ${namespace}-${name}  ${namespace}  ${parentservice}
+    IF  $external_url is None
+        RETURN  False
+    END
     Preparation Session For External Service  ${external_url}  ${session}
     RETURN  True
 
