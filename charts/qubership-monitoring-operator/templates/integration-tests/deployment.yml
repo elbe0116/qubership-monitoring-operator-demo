@@ -45,25 +45,25 @@ spec:
       {{- if .Values.integrationTests.priorityClassName }}
       priorityClassName: {{ .Values.integrationTests.priorityClassName | quote }}
       {{- end }}
-      {{- with .Values.integrationTests.imagePullSecrets }}
+      {{- if .Values.integrationTests.imagePullSecrets }}
       imagePullSecrets:
-        {{- toYaml . | nindent 8 }}
+{{- toYaml .Values.integrationTests.imagePullSecrets | nindent 8 }}
       {{- end }}
-      {{- with .Values.integrationTests.tolerations }}
+      {{- if .Values.integrationTests.tolerations }}
       tolerations:
-        {{- toYaml . | nindent 8 }}
+{{- toYaml .Values.integrationTests.tolerations | nindent 8 }}
       {{- end }}
-      {{- with .Values.integrationTests.nodeSelector }}
+      {{- if .Values.integrationTests.nodeSelector }}
       nodeSelector:
-        {{- toYaml . | nindent 8 }}
+{{- toYaml .Values.integrationTests.nodeSelector | nindent 8 }}
       {{- end }}
-      {{- with .Values.integrationTests.affinity }}
+      {{- if .Values.integrationTests.affinity }}
       affinity:
-        {{- toYaml . | nindent 8 }}
+{{- toYaml .Values.integrationTests.affinity | nindent 8 }}
       {{- end }}
-      {{- with .Values.integrationTests.securityContext }}
+      {{- if .Values.integrationTests.securityContext }}
       securityContext:
-        {{- toYaml . | nindent 8 }}
+{{- toYaml .Values.integrationTests.securityContext | nindent 8 }}
       {{- end }}
       {{- if .Values.integrationTests.ingressHostAliases }}
       {{- /* AWS EKS: Map Ingress hostname to nginx Service IP for internal access */ -}}
