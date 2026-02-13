@@ -74,14 +74,18 @@ spec:
                   fieldPath: metadata.name
             - name: TEMP
               value: /opt/robot/target
+            {{- if .Values.integrationTests.disableSSLVerification }}
+            - name: PYTHONHTTPSVERIFY
+              value: "0"
+            {{- end }}
             {{- if and .Values.grafana .Values.grafana.install }}
             - name: GRAFANA
               value: "true"
             - name: GRAFANA_HOST
               {{- if and .Values.grafana.ingress .Values.grafana.ingress.host }}
-              value: {{ .Values.grafana.ingress.host }}
+              value: {{ .Values.grafana.ingress.host | quote }}
               {{- else }}
-              value: grafana-service:3000
+              value: grafana-{{ .Values.NAMESPACE }}.{{ .Values.CLOUD_PUBLIC_HOST}}
               {{- end }}
             {{- else }}
             - name: GRAFANA
