@@ -52,7 +52,6 @@ spec:
       volumes:
         - name: robot-storage
           emptyDir: {}
-      affinity: {}
       tolerations: {{- toYaml .Values.integrationTests.tolerations | nindent 8 }}
       nodeSelector: {{- toYaml .Values.integrationTests.nodeSelector | nindent 8 }}
       affinity: {{- toYaml .Values.integrationTests.affinity | nindent 8 }}
