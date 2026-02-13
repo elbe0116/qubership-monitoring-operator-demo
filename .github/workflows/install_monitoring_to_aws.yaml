@@ -322,8 +322,13 @@ jobs:
           
           echo "nginx Ingress Controller is ready"
           
+          # Get nginx Service ClusterIP for hostAliases (resolves Ingress hostname to nginx internally)
+          NGINX_IP=$(kubectl get service nginx-ingress -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} -o jsonpath='{.spec.clusterIP}')
+          echo "nginx Service ClusterIP: $NGINX_IP"
+          
           # Note: nginx pod will be scheduled on any available Ready node
           # Test pod will use podAffinity to automatically land on the same node
+          # hostAliases maps Ingress hostname to nginx Service IP for internal DNS resolution
           
           # Build helm arguments dynamically (only add non-empty values)
           HELM_ARGS=""
@@ -389,6 +394,13 @@ jobs:
                       values:
                       - nginx-ingress
                   topologyKey: kubernetes.io/hostname
+            # hostAliases: Map Ingress hostname to nginx Service for internal DNS resolution
+            # This allows tests to use Ingress hostname (grafana-qstp-consul.local) 
+            # while actually connecting to nginx Service ClusterIP
+            ingressHostAliases:
+            - ip: "$NGINX_IP"
+              hostnames:
+              - "grafana-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local"
           
           # VictoriaMetrics components configuration - use AWS ECR to avoid Docker Hub rate limits
           victoriametrics:

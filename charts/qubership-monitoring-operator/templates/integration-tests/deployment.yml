@@ -57,6 +57,19 @@ spec:
       nodeSelector: {{- toYaml .Values.integrationTests.nodeSelector | nindent 8 }}
       affinity: {{- toYaml .Values.integrationTests.affinity | nindent 8 }}
       securityContext: {{- toYaml .Values.integrationTests.securityContext | nindent 8 }}
+      {{- if .Values.integrationTests.ingressHostAliases }}
+      {{- /* AWS EKS: Map Ingress hostname to nginx Service IP for internal access */ -}}
+      {{- /* This allows tests to use Ingress hostname while connecting to nginx Service */ -}}
+      {{- /* PR tests (Kind) are not affected as they use external Ingress directly */ -}}
+      hostAliases:
+      {{- range .Values.integrationTests.ingressHostAliases }}
+      - ip: {{ .ip | quote }}
+        hostnames:
+        {{- range .hostnames }}
+        - {{ . | quote }}
+        {{- end }}
+      {{- end }}
+      {{- end }}
       containers:
         - name: {{ .Values.integrationTests.name }}
           image: {{ template "integrationTests.image" . }}
