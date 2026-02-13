@@ -111,7 +111,7 @@ spec:
               value: "false"
             {{- end }}
             - name: TAGS
-              value: {{ toYaml .Values.integrationTests.tags }}
+              value: {{ .Values.integrationTests.tags | quote }}
             - name: TIMEOUT-BEFORE-START
               value: {{ .Values.integrationTests.timeoutBeforeStart | quote }}
             - name: OPERATOR
