@@ -49,9 +49,6 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      volumes:
-        - name: robot-storage
-          emptyDir: {}
       {{- with .Values.integrationTests.tolerations }}
       tolerations: {{- toYaml . | nindent 8 }}
       {{- end }}
@@ -196,4 +193,7 @@ spec:
           volumeMounts:
             - name: robot-storage
               mountPath: /opt/robot/target
+      volumes:
+        - name: robot-storage
+          emptyDir: {}
 {{- end }}
