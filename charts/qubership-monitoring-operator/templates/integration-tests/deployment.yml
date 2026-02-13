@@ -52,10 +52,18 @@ spec:
       volumes:
         - name: robot-storage
           emptyDir: {}
-      tolerations: {{- toYaml .Values.integrationTests.tolerations | nindent 8 }}
-      nodeSelector: {{- toYaml .Values.integrationTests.nodeSelector | nindent 8 }}
-      affinity: {{- toYaml .Values.integrationTests.affinity | nindent 8 }}
-      securityContext: {{- toYaml .Values.integrationTests.securityContext | nindent 8 }}
+      {{- with .Values.integrationTests.tolerations }}
+      tolerations: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.integrationTests.nodeSelector }}
+      nodeSelector: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.integrationTests.affinity }}
+      affinity: {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.integrationTests.securityContext }}
+      securityContext: {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- if .Values.integrationTests.ingressHostAliases }}
       {{- /* AWS EKS: Map Ingress hostname to nginx Service IP for internal access */ -}}
       {{- /* This allows tests to use Ingress hostname while connecting to nginx Service */ -}}
