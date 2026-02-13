@@ -318,31 +318,12 @@ jobs:
           kubectl wait --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
             --for=condition=ready pod \
             --selector=app=nginx-ingress \
-            --timeout=120s || true
-          
-          # Get a Ready node name for same-node scheduling
-          echo "Finding a Ready node for same-node scheduling..."
-          SELECTED_NODE=$(kubectl get nodes -o json | jq -r '.items[] | select(.status.conditions[] | select(.type=="Ready" and .status=="True")) | select(.spec.taints == null or (.spec.taints | length == 0)) | .metadata.name' | head -1)
-          
-          if [ -z "$SELECTED_NODE" ]; then
-            echo "WARNING: No untainted Ready node found, using any Ready node"
-            SELECTED_NODE=$(kubectl get nodes -o json | jq -r '.items[] | select(.status.conditions[] | select(.type=="Ready" and .status=="True")) | .metadata.name' | head -1)
-          fi
-          
-          echo "Selected node for same-node scheduling: $SELECTED_NODE"
-          
-          # Add nodeSelector to nginx controller
-          kubectl patch deployment nginx-ingress-controller -n ${{ vars.MONITORING_INSTALL_NAMESPACE }} \
-            --type=json \
-            -p="[{\"op\": \"add\", \"path\": \"/spec/template/spec/nodeSelector\", \"value\": {\"kubernetes.io/hostname\": \"$SELECTED_NODE\"}}]"
-          
-          echo "Waiting for nginx to restart on selected node..."
-          kubectl wait --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
-            --for=condition=ready pod \
-            --selector=app=nginx-ingress \
             --timeout=120s
           
-          echo "nginx Ingress Controller installed and running on node: $SELECTED_NODE"
+          echo "nginx Ingress Controller is ready"
+          
+          # Note: nginx pod will be scheduled on any available Ready node
+          # Test pod will use podAffinity to automatically land on the same node
           
           # Build helm arguments dynamically (only add non-empty values)
           HELM_ARGS=""
@@ -365,9 +346,6 @@ jobs:
           
           # Add GHCR credentials for pulling private images
           HELM_ARGS="$HELM_ARGS --set integrationTests.imagePullSecrets[0].name=ghcr-secret"
-          
-          # Configure same-node scheduling for integration tests (must be on same node as nginx)
-          HELM_ARGS="$HELM_ARGS --set integrationTests.nodeSelector.kubernetes\.io/hostname=$SELECTED_NODE"
           
           # Secrets - S3 credentials for test results upload
           [ -n "${{ secrets.S3_AWS_ACCESS_KEY_ID }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.username=${{ secrets.S3_AWS_ACCESS_KEY_ID }}"
@@ -400,6 +378,17 @@ jobs:
             securityContext:
               fsGroup: 1000
               runAsUser: 1000
+            # Pod Affinity: schedule test pod on the same node as nginx-ingress
+            affinity:
+              podAffinity:
+                requiredDuringSchedulingIgnoredDuringExecution:
+                - labelSelector:
+                    matchExpressions:
+                    - key: app
+                      operator: In
+                      values:
+                      - nginx-ingress
+                  topologyKey: kubernetes.io/hostname
           
           # VictoriaMetrics components configuration - use AWS ECR to avoid Docker Hub rate limits
           victoriametrics:
