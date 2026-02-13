@@ -50,16 +50,20 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.integrationTests.tolerations }}
-      tolerations: {{- toYaml . | nindent 8 }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.integrationTests.nodeSelector }}
-      nodeSelector: {{- toYaml . | nindent 8 }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.integrationTests.affinity }}
-      affinity: {{- toYaml . | nindent 8 }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- with .Values.integrationTests.securityContext }}
-      securityContext: {{- toYaml . | nindent 8 }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
       {{- end }}
       {{- if .Values.integrationTests.ingressHostAliases }}
       {{- /* AWS EKS: Map Ingress hostname to nginx Service IP for internal access */ -}}
