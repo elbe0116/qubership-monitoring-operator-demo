@@ -16,7 +16,7 @@ ${FILES_PATH}               %{ROBOT_HOME}/source_files/dashboards
 
 ${PATH_TO_DASHBOARD}        ${FILES_PATH}/dashboard_for_create.yml
 ${PATH_TO_UPD_DASHBOARD}    ${FILES_PATH}/dashboard_for_update.yml
-${RETRY_TIME}               5min
+${RETRY_TIME}               10min
 ${RETRY_INTERVAL}           3s
 
 *** Keywords ***
@@ -42,8 +42,7 @@ Decode Base64
 
 Attempt Login To Grafana
     [Arguments]  ${url}  ${username}  ${password}
-    ${url}=  Set Variable  https://${url}
-    Create Session  grafana_session  ${url}
+    Create Session  grafana_session  https://${url}
     ${headers}=  Create Dictionary  Content-Type=application/json
     ${body}=  Create Dictionary  user=${username}  password=${password}
     ${response}=  POST On Session  grafana_session  /login

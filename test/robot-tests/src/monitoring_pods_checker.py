@@ -72,6 +72,8 @@ if __name__ == '__main__':
     if grafana_operator == 'true':
         print('Checking grafana')
         enabled_services['grafana'] = dict(ready=0, label='app', kind='deployment')
+        print('Checking grafana-operator')
+        enabled_services['grafana-operator'] = dict(ready=0, label='app.kubernetes.io/name', kind='deployment')
 
     timeout_start = time.time()
     
@@ -100,6 +102,14 @@ if __name__ == '__main__':
     if not all_ready:
         print(f'Deployments are not ready at least {timeout} seconds')
         exit(1)
+    
+    # Wait for Grafana Operator to complete initial dashboard synchronization
+    if grafana_operator == 'true':
+        initial_sync_wait = 180  # 3 minutes for initial sync of all existing dashboards
+        print(f'Grafana Operator is ready. Waiting {initial_sync_wait}s for initial dashboard synchronization...')
+        time.sleep(initial_sync_wait)
+        print('Initial dashboard synchronization period completed.')
+    
     if operator == 'victoriametrics-operator':
         timeout_start = time.time()
         vmagent_check_interval = 10

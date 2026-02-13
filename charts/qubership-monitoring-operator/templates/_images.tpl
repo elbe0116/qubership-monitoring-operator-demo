@@ -344,7 +344,11 @@ Image can be found from:
 */}}
 {{- define "nodeExporter.image" -}}
   {{- if .Values.nodeExporter.image -}}
-    {{- printf "%s" .Values.nodeExporter.image -}}
+    {{- if .Values.nodeExporter.image.repository -}}
+      {{- printf "%s:%s" .Values.nodeExporter.image.repository .Values.nodeExporter.image.tag -}}
+    {{- else -}}
+      {{- printf "%s" .Values.nodeExporter.image -}}
+    {{- end -}}
   {{- else -}}
     {{- print "docker.io/prom/node-exporter:v1.9.0" -}}
   {{- end -}}

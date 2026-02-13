@@ -78,11 +78,11 @@ spec:
             - name: GRAFANA
               value: "true"
             - name: GRAFANA_HOST
-            {{- if and .Values.grafana.ingress .Values.grafana.ingress.host }}
-              value: {{ .Values.grafana.ingress.host | quote }}
-            {{- else }}
-              value: grafana-{{ .Values.NAMESPACE }}.{{ .Values.CLOUD_PUBLIC_HOST}}
-            {{- end }}
+              {{- if and .Values.grafana.ingress .Values.grafana.ingress.host }}
+              value: {{ .Values.grafana.ingress.host }}
+              {{- else }}
+              value: grafana-service:3000
+              {{- end }}
             {{- else }}
             - name: GRAFANA
               value: "false"

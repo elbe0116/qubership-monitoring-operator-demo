@@ -8,7 +8,7 @@ on:
         required: false
         default: "dev"
       test_tags:
-        description: "Test tags to run (e.g. smoke, grafana, or empty for default tags)"
+        description: "Test tags to run (e.g. 'smoke' for all smoke tests including UI, 'grafana' for grafana only, or leave empty for default: grafanaORtest-appORprometheus-adapterORsmoke)"
         required: false
         default: ""
       operator_type:
@@ -142,6 +142,9 @@ jobs:
           TAG_NAME=$(echo ${{ github.ref_name }} | sed 's@/@_@g')
           GITHUB_GROUP=$(echo ${{ github.repository_owner }} | tr '[:upper:]' '[:lower:]')
           
+          # Use custom built operator image from current branch
+          HELM_ARGS="$HELM_ARGS --set monitoringOperator.image=ghcr.io/${GITHUB_GROUP}/qubership-monitoring-operator:${TAG_NAME}"
+          
           # Enable integration tests and set test tags
           HELM_ARGS="$HELM_ARGS --set integrationTests.install=true"
           if [ -n "${{ github.event.inputs.test_tags }}" ]; then
@@ -160,11 +163,11 @@ jobs:
           
           # Variables (only add if set, otherwise use values.yaml defaults)
           [ -n "${{ vars.ATP_STORAGE_PROVIDER }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.provider=${{ vars.ATP_STORAGE_PROVIDER }}"
-          [ -n "${{ vars.ATP_STORAGE_SERVER_URL }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.serverUrl=${{ vars.ATP_STORAGE_SERVER_URL }}\""
-          [ -n "${{ vars.ATP_STORAGE_SERVER_UI_URL }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.serverUiUrl=${{ vars.ATP_STORAGE_SERVER_UI_URL }}\""
-          [ -n "${{ vars.ATP_STORAGE_BUCKET }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.bucket=${{ vars.ATP_STORAGE_BUCKET }}\""
-          [ -n "${{ vars.AWS_REGION }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.region=${{ vars.AWS_REGION }}\""
-          [ -n "${{ vars.ATP_REPORT_VIEW_UI_URL }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpReportViewUiUrl=${{ vars.ATP_REPORT_VIEW_UI_URL }}\""
+          [ -n "${{ vars.ATP_STORAGE_SERVER_URL }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.serverUrl=${{ vars.ATP_STORAGE_SERVER_URL }}"
+          [ -n "${{ vars.ATP_STORAGE_SERVER_UI_URL }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.serverUiUrl=${{ vars.ATP_STORAGE_SERVER_UI_URL }}"
+          [ -n "${{ vars.ATP_STORAGE_BUCKET }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.bucket=${{ vars.ATP_STORAGE_BUCKET }}"
+          [ -n "${{ vars.AWS_REGION }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpStorage.region=${{ vars.AWS_REGION }}"
+          [ -n "${{ vars.ATP_REPORT_VIEW_UI_URL }}" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.atpReportViewUiUrl=${{ vars.ATP_REPORT_VIEW_UI_URL }}"
           
           # Environment name (use input or variable)
           ENV_NAME="${{ vars.ENVIRONMENT_NAME }}"
@@ -172,7 +175,8 @@ jobs:
           [ -n "$ENV_NAME" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.environmentName=$ENV_NAME"
           
           # AWS EKS configuration for smaller clusters
-          cat > /tmp/aws-values.yaml << 'EOF'
+          # Use variable substitution for namespace in ingress hosts
+          cat > /tmp/aws-values.yaml << EOF
           integrationTests:
             resources:
               requests:
@@ -184,6 +188,24 @@ jobs:
             securityContext:
               fsGroup: 1000
               runAsUser: 1000
+          
+          # VictoriaMetrics components configuration - use AWS ECR to avoid Docker Hub rate limits
+          victoriametrics:
+            vmOperator:
+              # Main operator image from ECR
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-operator-v0.65.0
+              # configReloaderImage: use default from Docker Hub (docker.io/victoriametrics/operator:config-reloader-v0.65.0)
+              # Not overriding because operator expects specific tag format
+            vmAgent:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-vmagent-v1.130.0
+            vmAlert:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-vmalert-v1.130.0
+            vmAlertManager:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:prom-alertmanager-v0.28.1
+            vmAuth:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-vmauth-v1.130.0
+            vmSingle:
+              image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-victoria-metrics-v1.130.0
           
           # Node-exporter configuration for AWS EKS
           nodeExporter:
