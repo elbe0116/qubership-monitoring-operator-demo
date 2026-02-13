@@ -431,12 +431,25 @@ jobs:
           
           # Configure Grafana Ingress with nginx for AWS EKS
           # Using nginx Ingress Controller deployed in same namespace
-          # Both nginx and test pods are scheduled on the same node to enable connectivity
+          # All three pods (nginx, grafana, tests) must be on same node for connectivity
           grafana:
             ingress:
               enabled: true
               ingressClassName: nginx
               host: grafana-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local
+            # Pod Affinity: schedule Grafana on the same node as nginx-ingress
+            # Note: Grafana CR uses spec.deployment.affinity directly (not nested under spec.template.spec)
+            deployment:
+              affinity:
+                podAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                  - labelSelector:
+                      matchExpressions:
+                      - key: app
+                        operator: In
+                        values:
+                        - nginx-ingress
+                    topologyKey: kubernetes.io/hostname
           
           # Other UI ingresses remain disabled (tests will skip them)
           victoriametricsUI:
