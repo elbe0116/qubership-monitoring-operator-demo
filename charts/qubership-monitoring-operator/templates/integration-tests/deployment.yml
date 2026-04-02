@@ -66,9 +66,7 @@ spec:
 {{- toYaml .Values.integrationTests.securityContext | nindent 8 }}
       {{- end }}
       {{- if .Values.integrationTests.ingressHostAliases }}
-      {{- /* AWS EKS: Map Ingress hostname to nginx Service IP for internal access */ -}}
-      {{- /* This allows tests to use Ingress hostname while connecting to nginx Service */ -}}
-      {{- /* PR tests (Kind) are not affected as they use external Ingress directly */ -}}
+      # AWS EKS: map Ingress hostname to nginx Service ClusterIP for in-cluster tests.
       hostAliases:
       {{- range .Values.integrationTests.ingressHostAliases }}
       - ip: {{ .ip | quote }}
