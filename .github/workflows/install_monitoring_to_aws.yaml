@@ -315,9 +315,10 @@ jobs:
           EOF
           
           echo "Waiting for nginx Ingress Controller to be ready..."
-          kubectl wait --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
-            --for=condition=ready pod \
-            --selector=app=nginx-ingress \
+          # Use rollout status instead of kubectl wait on pods: kubectl wait fails with
+          # "no matching resources found" if it runs before any pod exists (race after apply).
+          kubectl rollout status deployment/nginx-ingress-controller \
+            --namespace=${{ vars.MONITORING_INSTALL_NAMESPACE }} \
             --timeout=120s
           
           echo "nginx Ingress Controller is ready"
