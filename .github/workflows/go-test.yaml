@@ -35,7 +35,7 @@ jobs:
       go-module-dir: '.'
       actor: ${{ github.actor }}
       sonar-project-key: ${{ vars.SONAR_PROJECT_KEY }}
-      kube-version: '1.30.0'
+      kube-version: '1.30.2'
       envtest-version: 'release-0.18'
       cover-packages: './controllers/...,./api/...'
       install-envtest: true

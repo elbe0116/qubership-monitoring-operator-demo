@@ -264,6 +264,11 @@ jobs:
               port: 80
               targetPort: 80
               protocol: TCP
+            # Robot tests call https://<ingress-host> (port 443); Service must expose 443.
+            - name: https
+              port: 443
+              targetPort: 443
+              protocol: TCP
             selector:
               app: nginx-ingress
           ---
@@ -371,6 +376,9 @@ jobs:
           [ -n "$ENV_NAME" ] && HELM_ARGS="$HELM_ARGS --set integrationTests.environmentName=$ENV_NAME"
           
           # AWS EKS configuration for smaller clusters
+          # Parity with GitHub: integration-tests.yaml runs on KinD (single-node), where etcd is scrapable
+          # and the same Robot suite passes. Managed EKS does not expose etcd like a self-hosted cluster;
+          # do not expect Check Etcd Vmagent Target Metrics to behave like the KinD pipeline without matching infra.
           # Use variable substitution for namespace in ingress hosts
           cat > /tmp/aws-values.yaml << EOF
           integrationTests:
@@ -402,6 +410,7 @@ jobs:
             - ip: "$NGINX_IP"
               hostnames:
               - "grafana-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local"
+              - "vmauth-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local"
           
           # VictoriaMetrics components configuration - use AWS ECR to avoid Docker Hub rate limits
           victoriametrics:
@@ -418,6 +427,20 @@ jobs:
               image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:prom-alertmanager-v0.28.1
             vmAuth:
               image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-vmauth-v1.130.0
+              ingress:
+                enabled: true
+                ingressClassName: nginx
+                host: vmauth-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local
+              affinity:
+                podAffinity:
+                  requiredDuringSchedulingIgnoredDuringExecution:
+                  - labelSelector:
+                      matchExpressions:
+                      - key: app
+                        operator: In
+                        values:
+                        - nginx-ingress
+                    topologyKey: kubernetes.io/hostname
             vmSingle:
               image: 442426885383.dkr.ecr.us-east-1.amazonaws.com/helm-charts-test-repo:victoriametrics-victoria-metrics-v1.130.0
           
@@ -464,7 +487,7 @@ jobs:
                         - nginx-ingress
                     topologyKey: kubernetes.io/hostname
           
-          # Other UI ingresses remain disabled (tests will skip them)
+          # VM UI via vmauth Ingress (single hostname for vmagent/vmalert/vmsingle paths); separate UIs stay off
           victoriametricsUI:
             ingress:
               enabled: false
@@ -504,9 +527,6 @@ jobs:
             monitoring ./charts/qubership-monitoring-operator \
             $HELM_ARGS
           
-          # AWS EKS configuration uses nginx Ingress Controller for Grafana UI tests
-          # - nginx and test pods are scheduled on the same node for connectivity
-          # - Grafana is accessible via nginx Ingress with hostname: grafana-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local
-          # - Other UI tests (VictoriaMetrics, vmalert, vmalertmanager) are skipped as their ingresses are disabled
-          echo "Grafana Ingress configured with nginx (same-node scheduling)"
+          # AWS EKS: nginx Ingress for Grafana + vmauth (VictoriaMetrics UI behind vmauth)
           echo "Grafana hostname: grafana-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local"
+          echo "Vmauth hostname: vmauth-${{ vars.MONITORING_INSTALL_NAMESPACE }}.local"
